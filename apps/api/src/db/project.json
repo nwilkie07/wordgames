@@ -1,0 +1,14 @@
+{
+  "generate-migrations": {
+    "command": "npx drizzle-kit generate",
+    "options": {
+      "cwd": "{projectRoot}"
+    }
+  },
+  "run-migrations": {
+    "command": "npx drizzle-kit migrate",
+    "options": {
+      "cwd": "{projectRoot}"
+    }
+  }
+}
