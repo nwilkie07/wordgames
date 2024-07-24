@@ -15,6 +15,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Route as rootRoute } from './routes/__root'
 import { Route as SettingsImport } from './routes/settings'
 import { Route as LoginImport } from './routes/login'
+import { Route as CreateAccountImport } from './routes/create-account'
 import { Route as TargetSevenLetterImport } from './routes/target/seven-letter'
 import { Route as TargetNineLetterImport } from './routes/target/nine-letter'
 
@@ -37,6 +38,11 @@ const SettingsRoute = SettingsImport.update({
 
 const LoginRoute = LoginImport.update({
   path: '/login',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const CreateAccountRoute = CreateAccountImport.update({
+  path: '/create-account',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -64,6 +70,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexLazyImport
+      parentRoute: typeof rootRoute
+    }
+    '/create-account': {
+      id: '/create-account'
+      path: '/create-account'
+      fullPath: '/create-account'
+      preLoaderRoute: typeof CreateAccountImport
       parentRoute: typeof rootRoute
     }
     '/login': {
@@ -108,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 export const routeTree = rootRoute.addChildren({
   IndexLazyRoute,
+  CreateAccountRoute,
   LoginRoute,
   SettingsRoute,
   AboutLazyRoute,
@@ -124,6 +138,7 @@ export const routeTree = rootRoute.addChildren({
       "filePath": "__root.tsx",
       "children": [
         "/",
+        "/create-account",
         "/login",
         "/settings",
         "/about",
@@ -133,6 +148,9 @@ export const routeTree = rootRoute.addChildren({
     },
     "/": {
       "filePath": "index.lazy.tsx"
+    },
+    "/create-account": {
+      "filePath": "create-account.tsx"
     },
     "/login": {
       "filePath": "login.tsx"
