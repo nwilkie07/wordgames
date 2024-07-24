@@ -25,23 +25,11 @@
         "serveStaticTargetName": "serve-static"
       }
     },
-    {
-      "plugin": "@nx/eslint/plugin",
-      "options": {
-        "targetName": "lint"
-      }
-    },
-    {
-      "plugin": "@nx/playwright/plugin",
-      "options": {
-        "targetName": "e2e"
-      }
-    },
+    { "plugin": "@nx/eslint/plugin", "options": { "targetName": "lint" } },
+    { "plugin": "@nx/playwright/plugin", "options": { "targetName": "e2e" } },
     {
       "plugin": "@nx/jest/plugin",
-      "options": {
-        "targetName": "test"
-      },
+      "options": { "targetName": "test" },
       "exclude": ["apps/api-e2e/**/*"]
     }
   ],
@@ -53,13 +41,8 @@
         "linter": "eslint",
         "bundler": "vite"
       },
-      "component": {
-        "style": "tailwind"
-      },
-      "library": {
-        "style": "tailwind",
-        "linter": "eslint"
-      }
+      "component": { "style": "tailwind" },
+      "library": { "style": "tailwind", "linter": "eslint" }
     }
   },
   "targetDefaults": {
@@ -68,5 +51,6 @@
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"]
     }
-  }
+  },
+  "nxCloudAccessToken": "YmJmOGI4NzMtNzRhNS00ZmQzLWI5ZmMtM2E5ZDg4YTI5YzVhfHJlYWQtd3JpdGU="
 }
