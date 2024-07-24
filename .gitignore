@@ -5,8 +5,6 @@ dist
 tmp
 /out-tsc
 
-nx-cloud.env
-
 # dependencies
 node_modules
 
@@ -43,3 +41,5 @@ Thumbs.db
 .nx/cache
 .nx/workspace-data
 nx.json
+.env
+nx-cloud.env
