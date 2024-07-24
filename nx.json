@@ -62,7 +62,6 @@
       }
     }
   },
-  "nxCloudAccessToken": "Njk5OWI5ZTYtMTk3YS00OTNkLWIxY2UtYTJiMzQzYTc2YzAyfHJlYWQtd3JpdGU=",
   "targetDefaults": {
     "@nx/esbuild:esbuild": {
       "cache": true,

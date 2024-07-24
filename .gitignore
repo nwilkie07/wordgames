@@ -5,7 +5,7 @@ dist
 tmp
 /out-tsc
 
-.env
+nx-cloud.env
 
 # dependencies
 node_modules
