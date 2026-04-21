@@ -13,17 +13,17 @@ export const publicProcedure = t.procedure;
 
 export const appRouter = router({
   createWordsTable: publicProcedure.mutation(() => {
-    // const val = ['cat', 'dog', 'bird', 'yellow'];
-    // const data = val.map(v => ({id: "e", word: v, length: v.length, pure: true}));
-    // console.log("Called")
     return db.transaction(async (tx) => {
-      const [word] = await tx.insert(s.words).values({word: "Task", length: 4, pure: true}).returning();
-    })
+      await tx
+        .insert(s.words)
+        .values({ word: 'Task', length: 4, pure: true })
+        .returning();
+    });
   }),
   testMethod: publicProcedure.query(async () => {
-    console.log("Done it")
-    return "test"
-  })
+    console.log('Done it');
+    return 'test';
+  }),
 });
 
 // Export type router type signature,

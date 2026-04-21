@@ -1,12 +1,10 @@
-import { AppRouter, appRouter, publicProcedure, router } from './app/trpc';
+import { AppRouter, appRouter } from './app/trpc';
 import {
   fastifyTRPCPlugin,
   FastifyTRPCPluginOptions,
 } from '@trpc/server/adapters/fastify';
 import fastify from 'fastify';
 import { createContext } from './app/context';
-import { TRPCError } from '@trpc/server';
-import * as z from "zod"
 
 //Copied from https://orm.drizzle.team/learn/guides/upsert
 // const buildConflictUpdateColumns = <
@@ -26,8 +24,6 @@ import * as z from "zod"
 //         {} as Record<Q, SQL>
 //     );
 // };
-
-
 
 const server = fastify({
   maxParamLength: 5000,

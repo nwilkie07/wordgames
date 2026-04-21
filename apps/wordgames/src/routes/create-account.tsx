@@ -1,53 +1,78 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import React, { useState } from 'react';
-import {  createUserWithEmailAndPassword  } from 'firebase/auth';
-
-
+import { createFileRoute } from '@tanstack/react-router';
+import React, { useState, FormEvent } from 'react';
 
 export const Route = createFileRoute('/create-account')({
-  component: CreateAccount
-})
+  component: CreateAccount,
+});
 
 export default function CreateAccount() {
-  const navigate = useNavigate();
-
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const onSubmit = async (e) => {
-    e.preventDefault()
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
 
-    await createUserWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        // Signed in
-        const user = userCredential.user;
-        console.log(user);
-        navigate("/login")
-        // ...
-      })
-      .catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        console.log(errorCode, errorMessage);
-        // ..
-      });
-  }
+    try {
+      const { initializeApp } = await import('firebase/app');
+      const { getAuth, createUserWithEmailAndPassword } =
+        await import('firebase/auth');
+
+      const firebaseConfig = {
+        apiKey: 'demo-key',
+        authDomain: 'demo.firebaseapp.com',
+        projectId: 'demo-project',
+        storageBucket: 'demo.appspot.com',
+        messagingSenderId: '123456789',
+        appId: '1:123456789:web:abc123',
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+
+      await createUserWithEmailAndPassword(auth, email, password);
+      window.location.href = '/login';
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Registration failed';
+      setError(errorMessage);
+    }
+  };
 
   return (
-    <div className={"flex flex-1 flex-col justify-center h-lvh"}>
-      <div className={"m-auto"}>
-        <div className={'grid grid-cols-2 gap-4 p-4 bg-gray-200 rounded-lg'}>
-          <span>Username</span>
-          <input className={'border-solid border-2'} />
-          <span>Email</span>
-          <input className={'border-solid border-2'} />
-          <span>Password</span>
-          <input className={'border-solid border-2'} />
-        </div>
-        <div className={'flex flex-1 gap-4 justify-end p-4'}>
-          <button>Submit</button>
-        </div>
+    <div className={'flex flex-1 flex-col justify-center h-lvh'}>
+      <div className={'m-auto'}>
+        <form onSubmit={onSubmit}>
+          <div className={'grid grid-cols-2 gap-4 p-4 bg-gray-200 rounded-lg'}>
+            <span>Email</span>
+            <input
+              className={'border-solid border-2'}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <span>Password</span>
+            <input
+              className={'border-solid border-2'}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+          <div className={'flex flex-1 gap-4 justify-end p-4'}>
+            <button
+              type="submit"
+              className="bg-blue-500 text-white px-4 py-2 rounded"
+            >
+              Submit
+            </button>
+          </div>
+        </form>
       </div>
     </div>
-  )
+  );
 }

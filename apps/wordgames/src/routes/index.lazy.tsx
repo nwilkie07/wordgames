@@ -1,81 +1,68 @@
-import {createLazyFileRoute} from '@tanstack/react-router';
-import {NavigationHeader} from '../components/navigation-header.tsx';
-import React, {useState} from 'react';
-import {NavArrowDown, NavArrowUp} from 'iconoir-react';
-import { trpc } from '../../../api/src/app/client';
+import { createLazyFileRoute } from '@tanstack/react-router';
+import { NavigationHeader } from '../components/navigation-header';
+import React, { useState } from 'react';
+import { NavArrowDown, NavArrowUp } from 'iconoir-react';
 
 export const Route = createLazyFileRoute('/')({
-    component: Index
+  component: Index,
 });
 
 interface Props {
-    label: string;
+  label: string;
+  onClick?: () => void;
 }
 
 export const Button = (props: Props) => {
-    return (
-        <button className={'bg-gray-100 p-4 rounded-md border'}>
-            {props.label}
-        </button>
-    );
+  return (
+    <button
+      onClick={props.onClick}
+      className={'bg-gray-100 p-4 rounded-md border hover:bg-gray-200'}
+    >
+      {props.label}
+    </button>
+  );
 };
 
 function Index() {
-    const [targetOpen, setTargetOpen] = useState(false);
-    const [panagramsOpen, setPanagramsOpen] = useState(false);
-    const createTable = trpc.createWordsTable.useMutation();
-    return (
-        <div>
-            <button
-                onClick={async () => {
-                    await createTable.mutateAsync({});
-                }}
-            >
-                Click to get words
-            </button>
-            <NavigationHeader />
-            <div
-                className={
-                    'flex flex-1 bg-gray-100 border-gray-200 border-solid border-2 p-4 m-2 rounded-md'
-                }
-            >
-                {targetOpen ? (
-                    <NavArrowDown onClick={() => setTargetOpen(false)} />
-                ) : (
-                    <NavArrowUp onClick={() => setTargetOpen(true)} />
-                )}
-                <div className={'justify-center flex flex-1'}>
-                    <span className={'font-medium text-xl'}>Target</span>
-                </div>
-            </div>
-            {targetOpen && (
-                <div className="grid grid-cols-3 gap-4 mx-4">
-                    <Button label={'7 Letters'} />
-                    <Button label={'8 Letters'} />
-                    <Button label={'9 Letters'} />
-                </div>
-            )}
-            <div
-                className={
-                    'flex flex-1 bg-gray-100 border-gray-200 border-solid border-2 p-4 m-2 rounded-md'
-                }
-            >
-                {panagramsOpen ? (
-                    <NavArrowDown onClick={() => setPanagramsOpen(false)} />
-                ) : (
-                    <NavArrowUp onClick={() => setPanagramsOpen(true)} />
-                )}
-                <div className={'justify-center flex flex-1'}>
-                    <span className={'font-medium text-xl'}>Panagram</span>
-                </div>
-            </div>
-            {panagramsOpen && (
-                <div className="grid grid-cols-3 gap-4 mx-4">
-                    <Button label={'5 Letters'} />
-                    <Button label={'6 Letters'} />
-                    <Button label={'7 Letters'} />
-                </div>
-            )}
-        </div>
-    );
+  const [targetOpen, setTargetOpen] = useState(false);
+  const [panagramsOpen, setPanagramsOpen] = useState(false);
+
+  return (
+    <div>
+      <NavigationHeader />
+
+      <div className="flex gap-2 mx-2 mt-2">
+        <a
+          href="/history/"
+          className="flex-1 block p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-600 hover:bg-blue-100 text-center"
+        >
+          Panagram History
+        </a>
+        <a
+          href="/target/history/"
+          className="flex-1 block p-3 bg-orange-50 border border-orange-200 rounded-md text-orange-600 hover:bg-orange-100 text-center"
+        >
+          Target History
+        </a>
+      </div>
+      <div
+        className={
+          'flex flex-1 bg-gray-100 border-gray-200 border-solid border-2 p-4 m-2 rounded-md justify-around'
+        }
+      >
+          <Button
+            label={'7 Letters'}
+            onClick={() => {
+              window.location.href = '/panagram/seven-letter';
+            }}
+          />
+          <Button
+            label={'Target'}
+            onClick={() => {
+              window.location.href = '/target/nine-letter';
+            }}
+          />
+      </div>
+    </div>
+  );
 }
