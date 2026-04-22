@@ -1,4 +1,4 @@
-// In-memory storage for game history
+// In-memory storage for game history (synced with localStorage)
 export type PanagramGame = {
   id: string;
   letters: string;
@@ -6,6 +6,7 @@ export type PanagramGame = {
   foundWordsJson: string;
   score: number;
   completed: boolean;
+  isEnded: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -17,12 +18,29 @@ export type TargetGame = {
   letterCounts: string;
   foundWordsJson: string;
   completed: boolean;
+  isEnded: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
-const panagramGames: PanagramGame[] = [];
-const targetGames: TargetGame[] = [];
+const PANAGRAM_STORAGE_KEY = 'wordgames_panagram_games';
+const TARGET_STORAGE_KEY = 'wordgames_target_games';
+
+function loadFromStorage<T>(key: string): T[] {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveToStorage<T>(key: string, data: T[]) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+let panagramGames: PanagramGame[] = loadFromStorage(PANAGRAM_STORAGE_KEY);
+let targetGames: TargetGame[] = loadFromStorage(TARGET_STORAGE_KEY);
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -41,6 +59,7 @@ export const gameDb = {
         updatedAt: now,
       };
       panagramGames.push(game);
+      saveToStorage(PANAGRAM_STORAGE_KEY, panagramGames);
       return game;
     },
     update(id: string, data: Partial<PanagramGame>): PanagramGame | null {
@@ -51,6 +70,7 @@ export const gameDb = {
         ...data,
         updatedAt: new Date().toISOString(),
       };
+      saveToStorage(PANAGRAM_STORAGE_KEY, panagramGames);
       return panagramGames[idx];
     },
     findById(id: string): PanagramGame | undefined {
@@ -61,6 +81,13 @@ export const gameDb = {
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       );
+    },
+    remove(id: string): boolean {
+      const idx = panagramGames.findIndex((g) => g.id === id);
+      if (idx === -1) return false;
+      panagramGames.splice(idx, 1);
+      saveToStorage(PANAGRAM_STORAGE_KEY, panagramGames);
+      return true;
     },
   },
   target: {
@@ -75,6 +102,7 @@ export const gameDb = {
         updatedAt: now,
       };
       targetGames.push(game);
+      saveToStorage(TARGET_STORAGE_KEY, targetGames);
       return game;
     },
     update(id: string, data: Partial<TargetGame>): TargetGame | null {
@@ -85,6 +113,7 @@ export const gameDb = {
         ...data,
         updatedAt: new Date().toISOString(),
       };
+      saveToStorage(TARGET_STORAGE_KEY, targetGames);
       return targetGames[idx];
     },
     findById(id: string): TargetGame | undefined {
@@ -95,6 +124,13 @@ export const gameDb = {
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       );
+    },
+    remove(id: string): boolean {
+      const idx = targetGames.findIndex((g) => g.id === id);
+      if (idx === -1) return false;
+      targetGames.splice(idx, 1);
+      saveToStorage(TARGET_STORAGE_KEY, targetGames);
+      return true;
     },
   },
 };

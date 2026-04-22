@@ -28,6 +28,14 @@ export default function History() {
     window.location.href = `/panagram/seven-letter?gameId=${gameId}`;
   };
 
+  const handleDeleteGame = (e: React.MouseEvent, gameId: string) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to delete this game?')) {
+      gameDb.panagram.remove(gameId);
+      setGames(gameDb.panagram.findAll());
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center">
@@ -83,9 +91,17 @@ export default function History() {
                     {formatDate(game.updatedAt)}
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xl font-bold">{game.score}</div>
-                  <div className="text-sm text-gray-500">points</div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="text-xl font-bold">{game.score}</div>
+                    <div className="text-sm text-gray-500">points</div>
+                  </div>
+                  <button
+                    onClick={(e) => handleDeleteGame(e, game.id)}
+                    className="rounded-md bg-red-100 px-3 py-1 text-sm font-bold text-red-600 hover:bg-red-200"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
               <div className="mt-2 text-sm text-gray-500">
@@ -95,6 +111,9 @@ export default function History() {
                 <div className="mt-2 text-sm font-bold text-green-600">
                   Completed!
                 </div>
+              )}
+              {game.isEnded && (
+                <div className="mt-2 text-sm font-bold text-red-600">Ended</div>
               )}
             </div>
           );

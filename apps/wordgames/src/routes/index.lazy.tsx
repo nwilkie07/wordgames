@@ -1,5 +1,6 @@
 import { createLazyFileRoute } from '@tanstack/react-router';
 import { NavigationHeader } from '../components/navigation-header';
+import { BackupSettings } from '../components/BackupSettings';
 import React, { useState } from 'react';
 import { NavArrowDown, NavArrowUp } from 'iconoir-react';
 
@@ -45,23 +46,27 @@ function Index() {
           Target History
         </a>
       </div>
+
+      <div className="mx-2 mt-4">
+        <BackupSettings />
+      </div>
       <div
         className={
           'flex flex-1 bg-gray-100 border-gray-200 border-solid border-2 p-4 m-2 rounded-md justify-around'
         }
       >
-          <Button
-            label={'7 Letters'}
-            onClick={() => {
-              window.location.href = '/panagram/seven-letter';
-            }}
-          />
-          <Button
-            label={'Target'}
-            onClick={() => {
-              window.location.href = '/target/nine-letter';
-            }}
-          />
+        <Button
+          label={'7 Letters'}
+          onClick={() => {
+            window.location.href = '/panagram/seven-letter';
+          }}
+        />
+        <Button
+          label={'Target'}
+          onClick={() => {
+            window.location.href = '/target/nine-letter';
+          }}
+        />
       </div>
     </div>
   );

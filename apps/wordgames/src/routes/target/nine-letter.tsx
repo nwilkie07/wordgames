@@ -1,29 +1,46 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Tile } from '../../components/tile';
+import { WordDistributionTable } from '../../components/WordDistributionTable';
+import { TwoLetterPrefixTable } from '../../components/TwoLetterPrefixTable';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { loadWords, getWords } from '../../db/seed';
 import { gameDb } from '../../db/games';
+import { trpc } from '../../../../api/src/app/client';
+import {
+  loadDefinitions,
+  getDefinition,
+  getDefinitionWithFallback,
+} from '../../lib/definitions';
+import { loadClues, getClues } from '../../lib/clues';
 
 export const Route = createFileRoute('/target/nine-letter')({
   component: NineLetter,
 });
 
-const ACHIEVEMENT_THRESHOLDS = [
-  { name: 'Beginner', words: 0 },
-  { name: 'Good Start', words: 5 },
-  { name: 'Moving Up', words: 10 },
-  { name: 'Good', words: 15 },
-  { name: 'Solid', words: 20 },
-  { name: 'Nice', words: 25 },
-  { name: 'Great', words: 30 },
-  { name: 'Amazing', words: 35 },
-  { name: 'Genius', words: 40 },
-];
-
 type ValidWord = {
   word: string;
   isTargetWord: boolean;
 };
+
+function generateAchievementThresholds(maxWords: number) {
+  const percentages = [0, 0.05, 0.15, 0.25, 0.4, 0.55, 0.7, 0.85, 1.0];
+  const names = [
+    'Beginner',
+    'Good Start',
+    'Moving Up',
+    'Good',
+    'Solid',
+    'Nice',
+    'Great',
+    'Amazing',
+    'Genius',
+  ];
+
+  return names.map((name, i) => ({
+    name,
+    words: Math.round(percentages[i] * maxWords),
+  }));
+}
 
 function getGameIdFromUrl(): string | null {
   const params = new URLSearchParams(window.location.search);
@@ -102,13 +119,34 @@ export default function NineLetter() {
     targetWord: string;
   } | null>(null);
   const [validWords, setValidWords] = useState<Map<string, ValidWord>>(
-    new Map()
+    new Map(),
   );
   const [foundWords, setFoundWords] = useState<Set<string>>(new Set());
   const [currentInput, setCurrentInput] = useState('');
+  const [inputIndices, setInputIndices] = useState<number[]>([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [currentGameId, setCurrentGameId] = useState<string | null>(null);
+  const [hints, setHints] = useState<string[]>([]);
+  const [showHints, setShowHints] = useState(false);
+  const [usedIndices, setUsedIndices] = useState<Set<number>>(new Set());
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [selectedDefinition, setSelectedDefinition] = useState<string | null>(
+    null,
+  );
+  const [isEnded, setIsEnded] = useState(false);
+
+  useEffect(() => {
+    if (selectedWord) {
+      getDefinitionWithFallback(selectedWord).then((def) => {
+        setSelectedDefinition(def);
+      });
+    } else {
+      setSelectedDefinition(null);
+    }
+  }, [selectedWord]);
+
+  const hintMutation = trpc.generateHints.useMutation();
 
   const loadOrCreateGame = useCallback(async () => {
     await loadWords();
@@ -162,6 +200,7 @@ export default function NineLetter() {
         for (const w of validWordsList) wordMap.set(w.word.toLowerCase(), w);
         setValidWords(wordMap);
         setCurrentGameId(urlGameId);
+        setIsEnded(savedGame.isEnded || false);
         setLoading(false);
         return;
       }
@@ -181,6 +220,7 @@ export default function NineLetter() {
         letterCounts: JSON.stringify(newPuzzle.letterCounts),
         foundWordsJson: '[]',
         completed: false,
+        isEnded: false,
       });
 
       setCurrentGameId(newGame.id);
@@ -191,17 +231,20 @@ export default function NineLetter() {
 
   useEffect(() => {
     loadOrCreateGame();
+    loadDefinitions();
+    loadClues();
   }, [loadOrCreateGame]);
 
   const saveGame = useCallback(
-    (words: Set<string>, completed = false) => {
+    (words: Set<string>, completed = false, isEndedFlag = false) => {
       if (!currentGameId) return;
       gameDb.target.update(currentGameId, {
         foundWordsJson: JSON.stringify([...words]),
         completed,
+        isEnded: isEndedFlag,
       });
     },
-    [currentGameId]
+    [currentGameId],
   );
 
   const displayLetters = useMemo(() => {
@@ -209,45 +252,60 @@ export default function NineLetter() {
     const letters = puzzle.letters.split('');
     const center = puzzle.centerLetter;
     const withoutCenter = letters.filter((l) => l !== center);
-    return [
-      ...withoutCenter.slice(0, 3),
-      center,
-      ...withoutCenter.slice(3, 5),
-      ...withoutCenter.slice(5),
-    ];
+    console.log(...withoutCenter.slice(0, 4));
+    return [...withoutCenter.slice(0, 4), center, ...withoutCenter.slice(4, 9)];
   }, [puzzle]);
 
-  const handleTileClick = (letter: string) => {
+  const handleTileClick = (letter: string, index: number) => {
+    if (isEnded) return;
     setCurrentInput((prev) => prev + letter);
+    setUsedIndices((prev) => new Set(prev).add(index));
+    setInputIndices((prev) => [...prev, index]);
     setMessage('');
   };
 
   const handleDelete = () => {
+    if (isEnded) return;
     setCurrentInput((prev) => prev.slice(0, -1));
+    setInputIndices((prev) => {
+      const newIndices = prev.slice(0, -1);
+      const lastIndex = prev[prev.length - 1];
+      if (lastIndex !== undefined) {
+        setUsedIndices((prevUsed) => {
+          const newUsed = new Set(prevUsed);
+          newUsed.delete(lastIndex);
+          return newUsed;
+        });
+      }
+      return newIndices;
+    });
     setMessage('');
   };
 
   const handleShuffle = () => {
+    if (isEnded) return;
     if (!puzzle) return;
     const letters = displayLetters.filter((l) => l !== puzzle.centerLetter);
     for (let i = letters.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [letters[i], letters[j]] = [letters[j], letters[i]];
     }
+    console.log(puzzle.centerLetter);
     setPuzzle((prev) =>
-      prev ? { ...prev, letters: prev.centerLetter + letters.join('') } : null
+      prev
+        ? {
+            ...prev,
+            letters:
+              letters.slice(0, 3).join('') +
+              prev.centerLetter +
+              letters.slice(3, 8).join(''),
+          }
+        : null,
     );
   };
 
-  const getCurrentAchievement = () => {
-    let achievement = ACHIEVEMENT_THRESHOLDS[0];
-    for (const threshold of ACHIEVEMENT_THRESHOLDS) {
-      if (foundWords.size >= threshold.words) achievement = threshold;
-    }
-    return achievement;
-  };
-
   const handleSubmit = () => {
+    if (isEnded) return;
     const word = currentInput.toLowerCase().trim();
     if (word.length < 4) setMessage('Too short');
     else if (!word.includes(puzzle?.centerLetter.toLowerCase() || ''))
@@ -261,20 +319,45 @@ export default function NineLetter() {
       setMessage(
         isTarget
           ? 'TARGET WORD!'
-          : `+1 word${word.length === 9 ? ' (9 letters!)' : ''}`
+          : `+1 word${word.length === 9 ? ' (9 letters!)' : ''}`,
       );
       const newFoundWords = new Set([...foundWords, word]);
       setFoundWords(newFoundWords);
       saveGame(newFoundWords, newFoundWords.size === validWords.size);
     }
     setCurrentInput('');
+    setUsedIndices(new Set());
+    setInputIndices([]);
   };
 
   const handleBackToHome = () => {
     window.location.href = '/';
   };
 
-  const achievement = getCurrentAchievement();
+  const handleGetHints = useCallback(async () => {
+    if (!puzzle) return;
+    const validWordsList = Array.from(validWords.keys());
+    const result = await hintMutation.mutateAsync({
+      letters: puzzle.letters,
+      centerLetter: puzzle.centerLetter,
+      foundWords: Array.from(foundWords),
+      validWords: validWordsList,
+    });
+    setHints(result.hints);
+    setShowHints(true);
+  }, [puzzle, foundWords, validWords, hintMutation]);
+
+  const ACHIEVEMENT_THRESHOLDS = useMemo(
+    () => generateAchievementThresholds(validWords.size),
+    [validWords.size],
+  );
+  const achievement = useMemo(() => {
+    let result = ACHIEVEMENT_THRESHOLDS[0];
+    for (const threshold of ACHIEVEMENT_THRESHOLDS) {
+      if (foundWords.size >= threshold.words) result = threshold;
+    }
+    return result;
+  }, [foundWords.size, ACHIEVEMENT_THRESHOLDS]);
   const achievementIndex = ACHIEVEMENT_THRESHOLDS.indexOf(achievement);
 
   if (loading)
@@ -315,42 +398,100 @@ export default function NineLetter() {
       </div>
 
       <div
+        className="mb-4 w-full max-w-md overflow-y-auto"
+        style={{ maxHeight: '150px' }}
+      >
+        <div className="flex flex-wrap justify-center gap-2">
+          {[...foundWords].sort().map((word) => (
+            <button
+              key={word}
+              onClick={() =>
+                setSelectedWord(word === selectedWord ? null : word)
+              }
+              className={`rounded-full px-2 py-1 text-xs bg-gray-100 text-gray-700 hover:ring-2 hover:ring-blue-400 ${
+                selectedWord === word ? 'ring-2 ring-blue-500' : ''
+              }`}
+            >
+              {word.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selectedWord && (
+        <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+          <div className="font-bold">{selectedWord.toUpperCase()}</div>
+          <div>{selectedDefinition || 'No definition available'}</div>
+        </div>
+      )}
+
+      <div
         className={`mb-4 min-h-12 min-w-48 border-2 px-4 py-2 text-center text-lg font-medium ${
           message.includes('TARGET')
             ? 'border-yellow-400 bg-yellow-50'
             : message.includes('+')
-            ? 'border-green-400 bg-green-50'
-            : 'border-gray-300'
+              ? 'border-green-400 bg-green-50'
+              : 'border-gray-300'
         }`}
       >
         {message || currentInput.toUpperCase()}
       </div>
 
       <div className="mb-6 grid grid-cols-3 gap-1">
-        {displayLetters.map((item, index) => {
-          if (index === 5) {
-            return (
-              <Tile
-                letter={puzzle.centerLetter}
-                index={index}
-                isCenter={true}
-                onClick={() => handleTileClick(puzzle.centerLetter)}
-              />
-            );
-          } else if (item !== puzzle.centerLetter) {
-            return (
-              <Tile
-                letter={item}
-                index={index}
-                onClick={() => handleTileClick(item)}
-              />
-            );
-          }
-        })}
         <Tile
           letter={displayLetters[0]}
           index={0}
-          onClick={() => handleTileClick(displayLetters[0])}
+          onClick={() => handleTileClick(displayLetters[0], 0)}
+          disabled={usedIndices.has(0)}
+        />
+        <Tile
+          letter={displayLetters[1]}
+          index={1}
+          onClick={() => handleTileClick(displayLetters[1], 1)}
+          disabled={usedIndices.has(1)}
+        />
+        <Tile
+          letter={displayLetters[2]}
+          index={2}
+          onClick={() => handleTileClick(displayLetters[2], 2)}
+          disabled={usedIndices.has(2)}
+        />
+        <Tile
+          letter={displayLetters[3]}
+          index={3}
+          onClick={() => handleTileClick(displayLetters[3], 3)}
+          disabled={usedIndices.has(3)}
+        />
+        <Tile
+          letter={displayLetters[4]}
+          index={4}
+          isCenter
+          onClick={() => handleTileClick(displayLetters[4], 4)}
+          disabled={usedIndices.has(4)}
+        />
+        <Tile
+          letter={displayLetters[5]}
+          index={5}
+          onClick={() => handleTileClick(displayLetters[5], 5)}
+          disabled={usedIndices.has(5)}
+        />
+        <Tile
+          letter={displayLetters[6]}
+          index={6}
+          onClick={() => handleTileClick(displayLetters[6], 6)}
+          disabled={usedIndices.has(6)}
+        />
+        <Tile
+          letter={displayLetters[7]}
+          index={7}
+          onClick={() => handleTileClick(displayLetters[7], 7)}
+          disabled={usedIndices.has(7)}
+        />
+        <Tile
+          letter={displayLetters[8]}
+          index={8}
+          onClick={() => handleTileClick(displayLetters[8], 8)}
+          disabled={usedIndices.has(8)}
         />
       </div>
 
@@ -381,36 +522,115 @@ export default function NineLetter() {
       >
         HOME
       </button>
-
-      <div
-        className="w-full max-w-md overflow-y-auto"
-        style={{ maxHeight: '200px' }}
+      <button
+        onClick={handleGetHints}
+        disabled={hintMutation.isPending || isEnded}
+        className="mb-4 rounded-md bg-purple-100 px-4 py-2 text-sm font-bold active:bg-purple-200 disabled:opacity-50"
       >
-        <div className="flex flex-wrap justify-center gap-2">
-          {[...foundWords].map((word) => {
-            const wordData = validWords.get(word);
-            return (
-              <span
-                key={word}
-                className={`rounded-full px-2 py-1 text-xs ${
-                  wordData?.isTargetWord
-                    ? 'bg-yellow-400 font-bold text-black'
-                    : word.length === 9
-                    ? 'bg-orange-400 text-white'
-                    : 'bg-gray-100 text-gray-700'
-                }`}
-              >
-                {word.toUpperCase()}
-              </span>
-            );
-          })}
-        </div>
-      </div>
+        {hintMutation.isPending ? '...' : 'HINT'}
+      </button>
+      {!isEnded && (
+        <button
+          onClick={() => {
+            setIsEnded(true);
+            saveGame(foundWords, foundWords.size === validWords.size, true);
+          }}
+          className="mb-4 rounded-md bg-red-100 px-4 py-2 text-sm font-bold active:bg-red-200"
+        >
+          END GAME
+        </button>
+      )}
 
       {currentGameId && (
         <div className="mt-4 text-xs text-gray-400">
           Game ID: {currentGameId.slice(0, 8)}...
         </div>
+      )}
+
+      {showHints && hints.length > 0 && (
+        <div className="mt-4 w-full max-w-md rounded-lg bg-purple-50 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="font-bold">Hints</h3>
+            <button
+              onClick={() => setShowHints(false)}
+              className="text-sm text-purple-600 hover:text-purple-800"
+            >
+              Close
+            </button>
+          </div>
+          <ul className="list-inside space-y-1 text-sm">
+            {hints.map((hint, i) => (
+              <li key={i}>{hint}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {puzzle && validWords.size > 0 && !isEnded && (
+        <button
+          onClick={() => {
+            const unfoundWords = Array.from(validWords.keys()).filter(
+              (w) => !foundWords.has(w),
+            );
+            if (unfoundWords.length === 0) return;
+            const word =
+              unfoundWords[Math.floor(Math.random() * unfoundWords.length)];
+            const clues = getClues(word);
+            if (clues && clues.length > 0) {
+              const clue = clues[Math.floor(Math.random() * clues.length)];
+              setMessage(clue);
+            } else {
+              setMessage(`No clue found`);
+            }
+          }}
+          className="mt-4 rounded-md bg-green-100 px-4 py-2 text-sm font-bold hover:bg-green-200"
+        >
+          Show Clue for Random Unfound Word
+        </button>
+      )}
+
+      {isEnded && puzzle && validWords.size > 0 && (
+        <div className="mt-4 w-full max-w-md">
+          <h3 className="mb-2 text-center text-sm font-bold text-red-600">
+            Words You Missed ({validWords.size - foundWords.size})
+          </h3>
+          <div className="flex flex-wrap justify-center gap-2">
+            {Array.from(validWords.keys())
+              .filter((w) => !foundWords.has(w))
+              .map((word) => {
+                const wordData = validWords.get(word);
+                return (
+                  <button
+                    key={word}
+                    onClick={() =>
+                      setSelectedWord(word === selectedWord ? null : word)
+                    }
+                    className={`rounded-full px-2 py-1 text-xs ${
+                      wordData?.isTargetWord
+                        ? 'bg-orange-200 font-bold text-orange-800'
+                        : 'bg-gray-200 text-gray-700'
+                    } hover:ring-2 hover:ring-blue-400 ${
+                      selectedWord === word ? 'ring-2 ring-blue-500' : ''
+                    }`}
+                  >
+                    {word.toUpperCase()}
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {puzzle && validWords.size > 0 && (
+        <WordDistributionTable
+          letters={puzzle.letters}
+          centerLetter={puzzle.centerLetter}
+          validWords={Array.from(validWords.values())}
+        />
+      )}
+
+      {puzzle && validWords.size > 0 && (
+        <TwoLetterPrefixTable validWords={Array.from(validWords.values())} />
       )}
     </div>
   );

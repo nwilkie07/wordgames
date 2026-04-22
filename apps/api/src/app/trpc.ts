@@ -1,6 +1,8 @@
 import { initTRPC } from '@trpc/server';
 import { db } from '../db/db';
 import * as s from '../db/schema';
+import { z } from 'zod';
+import { llamaService } from '../lib/llama';
 
 const t = initTRPC.context().create();
 
@@ -24,6 +26,29 @@ export const appRouter = router({
     console.log('Done it');
     return 'test';
   }),
+  generateHints: publicProcedure
+    .input(
+      z.object({
+        letters: z.string(),
+        centerLetter: z.string(),
+        foundWords: z.array(z.string()),
+        validWords: z.array(z.string()),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const { letters, centerLetter, foundWords, validWords } = input;
+      const remainingCount = validWords.length - foundWords.length;
+
+      const hints = await llamaService.generateHints({
+        letters,
+        centerLetter,
+        foundWords,
+        remainingCount,
+        allValidWords: validWords,
+      });
+
+      return { hints };
+    }),
 });
 
 // Export type router type signature,
